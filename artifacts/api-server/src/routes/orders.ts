@@ -3,14 +3,7 @@ import { eq, desc } from "drizzle-orm";
 import { addMinutes } from "date-fns";
 import { db, ordersTable } from "@workspace/db";
 import { GetDownloadLinkParams } from "@workspace/api-zod";
-
-function addMinutesFallback(date: Date, minutes: number): Date {
-  try {
-    return addMinutes(date, minutes);
-  } catch {
-    return new Date(date.getTime() + minutes * 60 * 1000);
-  }
-}
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -21,6 +14,29 @@ router.get("/orders", async (_req, res): Promise<void> => {
     amountPaid: parseFloat(o.amountPaid),
   }));
   res.json(orders);
+});
+
+router.get("/orders/by-session/:sessionId", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.sessionId)
+    ? req.params.sessionId[0]
+    : req.params.sessionId;
+
+  if (!raw) {
+    res.status(400).json({ error: "Session ID required" });
+    return;
+  }
+
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.stripeSessionId, raw));
+
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  res.json({ ...order, amountPaid: parseFloat(order.amountPaid) });
 });
 
 router.get("/orders/:id/download", async (req, res): Promise<void> => {
@@ -49,8 +65,10 @@ router.get("/orders/:id/download", async (req, res): Promise<void> => {
     ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
     : "http://localhost:80";
 
-  const expiresAt = addMinutesFallback(new Date(), 60);
+  const expiresAt = addMinutes(new Date(), 60);
   const downloadUrl = `${baseUrl}/api/download/${order.downloadToken}?expires=${expiresAt.getTime()}`;
+
+  logger.info({ orderId: order.id }, "Download link generated");
 
   res.json({
     url: downloadUrl,
