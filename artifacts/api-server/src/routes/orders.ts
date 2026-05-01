@@ -4,6 +4,7 @@ import { addMinutes } from "date-fns";
 import { db, ordersTable } from "@workspace/db";
 import { GetDownloadLinkParams } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
+import { lookupLimiter } from "../lib/rate-limit";
 
 const router: IRouter = Router();
 
@@ -77,7 +78,7 @@ router.get("/orders/:id/download", async (req, res): Promise<void> => {
   });
 });
 
-router.post("/orders/lookup-by-email", async (req, res): Promise<void> => {
+router.post("/orders/lookup-by-email", lookupLimiter, async (req, res): Promise<void> => {
   const { email } = req.body as { email?: string };
 
   if (!email || typeof email !== "string" || !email.includes("@")) {

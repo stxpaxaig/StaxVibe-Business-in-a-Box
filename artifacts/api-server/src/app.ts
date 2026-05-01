@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { globalLimiter } from "./lib/rate-limit";
 
 const app: Express = express();
 
@@ -32,6 +33,7 @@ app.use("/api/webhook/stripe", express.raw({ type: "application/json" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use(globalLimiter);
 app.use("/api", router);
 
 export default app;

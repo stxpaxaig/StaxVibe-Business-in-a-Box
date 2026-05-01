@@ -1,8 +1,10 @@
 import { Router, type IRouter } from "express";
 import { desc, sql } from "drizzle-orm";
 import { db, ordersTable } from "@workspace/db";
+import { adminLimiter } from "../lib/rate-limit";
 
 const router: IRouter = Router();
+router.use("/admin", adminLimiter);
 
 router.get("/admin/stats", async (_req, res): Promise<void> => {
   const totalResult = await db

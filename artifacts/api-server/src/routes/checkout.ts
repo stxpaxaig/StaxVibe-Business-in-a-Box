@@ -6,6 +6,7 @@ import { db, productsTable, ordersTable } from "@workspace/db";
 import { CreateCheckoutSessionBody } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 import { sendOrderConfirmationEmail } from "../lib/email";
+import { checkoutLimiter } from "../lib/rate-limit";
 
 const router: IRouter = Router();
 
@@ -60,7 +61,7 @@ async function fulfillOrder(opts: {
   return { orderId: order.id, downloadToken };
 }
 
-router.post("/checkout/create-session", async (req, res): Promise<void> => {
+router.post("/checkout/create-session", checkoutLimiter, async (req, res): Promise<void> => {
   const parsed = CreateCheckoutSessionBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -139,9 +140,15 @@ router.post("/webhook/stripe", async (req, res): Promise<void> => {
   let event: Stripe.Event;
 
   try {
-    if (webhookSecret && sig) {
+    if (webhookSecret) {
+      if (!sig) {
+        logger.warn("Webhook received without signature — rejecting (STRIPE_WEBHOOK_SECRET is set)");
+        res.status(400).json({ error: "Missing stripe-signature header" });
+        return;
+      }
       event = stripe.webhooks.constructEvent(req.body as Buffer, sig, webhookSecret);
     } else {
+      logger.warn("STRIPE_WEBHOOK_SECRET not set — accepting webhook without signature verification");
       event = JSON.parse((req.body as Buffer).toString()) as Stripe.Event;
     }
   } catch (err) {
