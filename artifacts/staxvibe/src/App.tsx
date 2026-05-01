@@ -13,6 +13,8 @@ import CheckoutSuccess from "@/pages/checkout-success";
 import CheckoutCancel from "@/pages/checkout-cancel";
 import Download from "@/pages/download";
 import Admin from "@/pages/admin";
+import OrderLookup from "@/pages/order-lookup";
+import Setup from "@/pages/setup";
 import NotFound from "@/pages/not-found";
 import { useEffect } from "react";
 
@@ -31,6 +33,8 @@ function Router() {
           <Route path="/checkout/cancel" component={CheckoutCancel} />
           <Route path="/download/:orderId" component={Download} />
           <Route path="/admin" component={Admin} />
+          <Route path="/orders/lookup" component={OrderLookup} />
+          <Route path="/setup" component={Setup} />
           <Route component={NotFound} />
         </Switch>
       </main>

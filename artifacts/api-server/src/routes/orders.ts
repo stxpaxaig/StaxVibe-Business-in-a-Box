@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, ilike } from "drizzle-orm";
 import { addMinutes } from "date-fns";
 import { db, ordersTable } from "@workspace/db";
 import { GetDownloadLinkParams } from "@workspace/api-zod";
@@ -75,6 +75,44 @@ router.get("/orders/:id/download", async (req, res): Promise<void> => {
     expiresAt: expiresAt.toISOString(),
     productName: order.productName,
   });
+});
+
+router.post("/orders/lookup-by-email", async (req, res): Promise<void> => {
+  const { email } = req.body as { email?: string };
+
+  if (!email || typeof email !== "string" || !email.includes("@")) {
+    res.status(400).json({ error: "Valid email address required" });
+    return;
+  }
+
+  const baseUrl = process.env.REPLIT_DOMAINS
+    ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+    : "http://localhost:80";
+
+  const rows = await db
+    .select()
+    .from(ordersTable)
+    .where(ilike(ordersTable.customerEmail, email.trim()))
+    .orderBy(desc(ordersTable.createdAt));
+
+  const orders = rows
+    .filter((o) => o.status === "completed" && o.downloadToken)
+    .map((o) => {
+      const expiresAt = addMinutes(new Date(), 60);
+      const downloadUrl = `${baseUrl}/api/download/${o.downloadToken}?expires=${expiresAt.getTime()}`;
+      return {
+        id: o.id,
+        productName: o.productName,
+        amountPaid: parseFloat(o.amountPaid),
+        status: o.status,
+        createdAt: o.createdAt,
+        downloadUrl,
+        expiresAt: expiresAt.toISOString(),
+      };
+    });
+
+  logger.info({ email, count: orders.length }, "Order lookup by email");
+  res.json({ orders });
 });
 
 export default router;
