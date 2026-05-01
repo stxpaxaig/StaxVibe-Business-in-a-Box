@@ -1,0 +1,26 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "bT3g7U1JlqpB-eWVL9FO3"
+uri = "file://artifacts/staxvibe/public/images/infographics.png"
+type = "image"
+title = "Financial Infographic Pack"
+
+[[generated]]
+id = "71QNreLYWshy7ZUkmETqQ"
+uri = "file://artifacts/staxvibe/public/images/prompts.png"
+type = "image"
+title = "AI Prompt Library"
+
+[[generated]]
+id = "wW0C3mkSF61acaLMpmKDF"
+uri = "file://artifacts/staxvibe/public/images/video-assets.png"
+type = "image"
+title = "Faceless Video Assets"
+
+[[generated]]
+id = "sPRFpYbXS4wmDVPaakPew"
+uri = "file://artifacts/staxvibe/public/images/notion-dash.png"
+type = "image"
+title = "Notion Trading Dashboard"

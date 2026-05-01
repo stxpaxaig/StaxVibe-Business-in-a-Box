@@ -3,20 +3,25 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: StaxVibe AI Graphics marketplace API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: products
+    description: Product catalog
+  - name: orders
+    description: Orders and checkout
+  - name: admin
+    description: Admin operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +29,229 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List all products
+      parameters:
+        - in: query
+          name: category
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: featured
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [admin]
+      summary: Create a new product (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/featured:
+    get:
+      operationId: getFeaturedProducts
+      tags: [products]
+      summary: Get featured/top products
+      responses:
+        "200":
+          description: Featured products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a single product
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateProduct
+      tags: [admin]
+      summary: Update a product (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    delete:
+      operationId: deleteProduct
+      tags: [admin]
+      summary: Delete a product (admin)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [products]
+      summary: List all categories with product counts
+      responses:
+        "200":
+          description: Category list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  /checkout/create-session:
+    post:
+      operationId: createCheckoutSession
+      tags: [orders]
+      summary: Create a Stripe checkout session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutInput"
+      responses:
+        "200":
+          description: Checkout session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutSession"
+
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [admin]
+      summary: List all orders (admin)
+      responses:
+        "200":
+          description: Order list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+
+  /orders/{id}/download:
+    get:
+      operationId: getDownloadLink
+      tags: [orders]
+      summary: Get a temporary download link for an order
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Download info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadLink"
+        "404":
+          description: Not found
+
+  /webhook/stripe:
+    post:
+      operationId: stripeWebhook
+      tags: [orders]
+      summary: Stripe webhook handler
+      responses:
+        "200":
+          description: Acknowledged
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get admin dashboard stats (total revenue, orders, products, top sellers)
+      responses:
+        "200":
+          description: Admin stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/revenue-chart:
+    get:
+      operationId: getRevenueChart
+      tags: [admin]
+      summary: Get daily revenue data for chart
+      responses:
+        "200":
+          description: Revenue chart data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RevenueDataPoint"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +262,219 @@ components:
       required:
         - status
 
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        category:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        fileUrl:
+          type: ["string", "null"]
+        featured:
+          type: boolean
+        badge:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+        - description
+        - price
+        - category
+        - imageUrl
+        - fileUrl
+        - featured
+        - badge
+        - createdAt
+        - updatedAt
+
+    ProductInput:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        category:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        fileUrl:
+          type: ["string", "null"]
+        featured:
+          type: boolean
+        badge:
+          type: ["string", "null"]
+      required:
+        - name
+        - description
+        - price
+        - category
+
+    ProductUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        category:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        fileUrl:
+          type: ["string", "null"]
+        featured:
+          type: boolean
+        badge:
+          type: ["string", "null"]
+
+    Category:
+      type: object
+      properties:
+        name:
+          type: string
+        count:
+          type: integer
+        description:
+          type: string
+      required:
+        - name
+        - count
+        - description
+
+    CheckoutInput:
+      type: object
+      properties:
+        productId:
+          type: integer
+        customerEmail:
+          type: ["string", "null"]
+      required:
+        - productId
+
+    CheckoutSession:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        url:
+          type: string
+      required:
+        - sessionId
+        - url
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        productName:
+          type: string
+        customerEmail:
+          type: ["string", "null"]
+        amountPaid:
+          type: number
+        status:
+          type: string
+        stripeSessionId:
+          type: ["string", "null"]
+        downloadToken:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - productId
+        - productName
+        - customerEmail
+        - amountPaid
+        - status
+        - stripeSessionId
+        - downloadToken
+        - createdAt
+
+    DownloadLink:
+      type: object
+      properties:
+        url:
+          type: string
+        expiresAt:
+          type: string
+        productName:
+          type: string
+      required:
+        - url
+        - expiresAt
+        - productName
+
+    AdminStats:
+      type: object
+      properties:
+        totalRevenue:
+          type: number
+        totalOrders:
+          type: integer
+        totalProducts:
+          type: integer
+        avgOrderValue:
+          type: number
+        topProducts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopProduct"
+      required:
+        - totalRevenue
+        - totalOrders
+        - totalProducts
+        - avgOrderValue
+        - topProducts
+
+    TopProduct:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        revenue:
+          type: number
+        orders:
+          type: integer
+      required:
+        - id
+        - name
+        - revenue
+        - orders
+
+    RevenueDataPoint:
+      type: object
+      properties:
+        date:
+          type: string
+        revenue:
+          type: number
+        orders:
+          type: integer
+      required:
+        - date
+        - revenue
+        - orders
