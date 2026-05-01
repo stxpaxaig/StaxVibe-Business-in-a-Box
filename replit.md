@@ -28,6 +28,27 @@ Set `STRIPE_SECRET_KEY` environment variable to enable real Stripe checkout.
 Without it, the app runs in demo mode (creates completed orders automatically).
 Optional: Set `STRIPE_WEBHOOK_SECRET` for webhook signature verification.
 
+### Email (SMTP via Nodemailer)
+Without these, checkout still works but no confirmation email is sent.
+- `SMTP_HOST` — e.g. `smtp.gmail.com` / `smtp.sendgrid.net` / `mail.privateemail.com`
+- `SMTP_PORT` — `587` (TLS, default) or `465` (SSL)
+- `SMTP_USER` — your SMTP login / email address
+- `SMTP_PASS` — your SMTP password or app password
+- `SMTP_FROM_NAME` — (optional) display name, e.g. `StaxVibe AI Graphics`
+- `SMTP_FROM_EMAIL` — (optional) from address, defaults to SMTP_USER
+
+### All Secrets Reference
+| Secret | Required | Purpose |
+|---|---|---|
+| `STRIPE_SECRET_KEY` | For real payments | Stripe checkout |
+| `STRIPE_WEBHOOK_SECRET` | For webhook verification | Stripe event auth |
+| `SMTP_HOST` | For emails | SMTP server host |
+| `SMTP_PORT` | For emails | SMTP port (default 587) |
+| `SMTP_USER` | For emails | SMTP username |
+| `SMTP_PASS` | For emails | SMTP password/app key |
+| `SMTP_FROM_NAME` | Optional | Email sender display name |
+| `SMTP_FROM_EMAIL` | Optional | Email from address |
+
 ## Stack
 
 - **Monorepo tool**: pnpm workspaces
