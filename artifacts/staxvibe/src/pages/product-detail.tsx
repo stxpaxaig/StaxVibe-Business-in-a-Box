@@ -3,9 +3,14 @@ import { useGetProduct, getGetProductQueryKey } from "@workspace/api-client-reac
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Zap, ArrowLeft, Terminal, ShieldCheck, Download as DownloadIcon, ShoppingBag } from "lucide-react";
+import { Zap, ArrowLeft, ShieldCheck, Download as DownloadIcon, Terminal, ShoppingBag } from "lucide-react";
 import { Link } from "wouter";
 import { usePayment } from "@/context/PaymentContext";
+import { PRODUCT_GALLERY } from "@/lib/productGallery";
+import { useState } from "react";
+
+const NEON_GREEN = "#00FF00";
+const NEON_RED   = "#FF0000";
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -13,6 +18,7 @@ export default function ProductDetail() {
     query: { enabled: !!id, queryKey: getGetProductQueryKey(Number(id)) },
   });
   const { openModal } = usePayment();
+  const [activeImg, setActiveImg] = useState(0);
 
   const getCategoryImage = (category: string) => {
     if (category.toLowerCase().includes("notion")) return "/images/notion-dash.png";
@@ -22,12 +28,11 @@ export default function ProductDetail() {
   };
 
   const getBadgeColor = (badge: string | null) => {
-    if (!badge) return "bg-primary";
+    if (!badge) return "";
     const b = badge.toUpperCase();
-    if (b === "TRENDING") return "bg-accent text-accent-foreground";
-    if (b === "HOT") return "bg-destructive text-destructive-foreground";
-    if (b === "NEW") return "bg-secondary text-secondary-foreground";
-    return "bg-primary text-primary-foreground";
+    if (b === "HOT") return "destructive";
+    if (b === "TRENDING") return "accent";
+    return "secondary";
   };
 
   if (isLoading) {
@@ -40,7 +45,6 @@ export default function ProductDetail() {
             <Skeleton className="h-12 w-3/4 bg-card" />
             <Skeleton className="h-6 w-1/4 bg-card" />
             <Skeleton className="h-32 w-full bg-card" />
-            <Skeleton className="h-16 w-full bg-card" />
           </div>
         </div>
       </div>
@@ -59,87 +63,145 @@ export default function ProductDetail() {
     );
   }
 
+  const gallery = PRODUCT_GALLERY[product.id] ?? [];
+  const heroSrc = gallery[activeImg] ?? product.imageUrl ?? getCategoryImage(product.category);
+
   function handleBuyNow() {
-    openModal({
-      id: product!.id,
-      name: product!.name,
-      price: product!.price,
-      category: product!.category,
-    });
+    openModal({ id: product!.id, name: product!.name, price: product!.price, category: product!.category });
   }
 
   return (
     <div className="container max-w-screen-xl px-4 py-8 mx-auto">
-      <Link href="/products" className="inline-flex items-center text-sm font-mono text-muted-foreground hover:text-primary transition-colors mb-8">
+      <Link
+        href="/products"
+        className="inline-flex items-center text-sm font-mono text-muted-foreground hover:text-primary transition-colors mb-8"
+      >
         <ArrowLeft className="mr-2 h-4 w-4" /> BACK_TO_CATALOG
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-        {/* Visual Column */}
-        <div className="space-y-6">
-          <div className="relative aspect-video rounded-xl overflow-hidden border border-border/50 bg-muted group">
+        {/* Visual column */}
+        <div className="space-y-4">
+          {/* Hero image */}
+          <div
+            className="relative aspect-video rounded-xl overflow-hidden bg-[#0d0f14]"
+            style={{ border: `1px solid ${NEON_GREEN}` }}
+          >
             <img
-              src={product.imageUrl || getCategoryImage(product.category)}
+              src={heroSrc}
               alt={product.name}
-              className="object-cover w-full h-full"
+              className="object-cover w-full h-full transition-opacity duration-300"
             />
             {product.badge && (
-              <Badge className={`absolute top-4 right-4 font-mono font-bold text-sm px-3 py-1 ${getBadgeColor(product.badge)} border-none shadow-[0_0_15px_rgba(0,0,0,0.5)]`}>
-                {product.badge === "HOT" || product.badge === "TRENDING" ? <Zap className="mr-2 h-4 w-4 inline" /> : null}
+              <Badge
+                className="absolute top-4 right-4 font-mono font-bold text-sm px-3 py-1 border-none shadow-lg"
+                variant={getBadgeColor(product.badge) as any}
+              >
+                {(product.badge === "HOT" || product.badge === "TRENDING") && (
+                  <Zap className="mr-2 h-4 w-4 inline" />
+                )}
                 {product.badge}
               </Badge>
             )}
-            <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-xl pointer-events-none" />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="border border-border/50 bg-card/30 rounded-lg p-4 flex flex-col items-center justify-center text-center">
-              <ShieldCheck className="h-6 w-6 text-primary mb-2" />
-              <span className="text-[10px] font-mono text-muted-foreground">SECURE_PAYMENT</span>
+          {/* 4-image gallery grid */}
+          {gallery.length > 0 && (
+            <div className="grid grid-cols-4 gap-2">
+              {gallery.map((src, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveImg(i)}
+                  className="relative aspect-square rounded-lg overflow-hidden transition-all duration-200 hover:scale-[1.03]"
+                  style={{
+                    border: activeImg === i
+                      ? `2px solid ${NEON_GREEN}`
+                      : `1px solid #1e2330`,
+                    boxShadow: activeImg === i
+                      ? `0 0 12px ${NEON_GREEN}60`
+                      : "none",
+                  }}
+                >
+                  <img
+                    src={src}
+                    alt={`${product.name} preview ${i + 1}`}
+                    className="object-cover w-full h-full"
+                  />
+                  {activeImg === i && (
+                    <div
+                      className="absolute inset-0"
+                      style={{ background: `${NEON_GREEN}15` }}
+                    />
+                  )}
+                </button>
+              ))}
             </div>
-            <div className="border border-border/50 bg-card/30 rounded-lg p-4 flex flex-col items-center justify-center text-center">
-              <DownloadIcon className="h-6 w-6 text-secondary mb-2" />
-              <span className="text-[10px] font-mono text-muted-foreground">FILE_DELIVERY</span>
-            </div>
-            <div className="border border-border/50 bg-card/30 rounded-lg p-4 flex flex-col items-center justify-center text-center">
-              <Terminal className="h-6 w-6 text-accent mb-2" />
-              <span className="text-[10px] font-mono text-muted-foreground">LIFETIME_ACCESS</span>
-            </div>
+          )}
+
+          {/* Trust badges */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { icon: ShieldCheck, label: "SECURE_PAYMENT", color: NEON_GREEN },
+              { icon: DownloadIcon, label: "FILE_DELIVERY", color: NEON_GREEN },
+              { icon: Terminal, label: "LIFETIME_ACCESS", color: NEON_GREEN },
+            ].map(({ icon: Icon, label, color }) => (
+              <div
+                key={label}
+                className="rounded-lg p-4 flex flex-col items-center justify-center text-center"
+                style={{ background: "#0d0f14", border: "1px solid #1e2330" }}
+              >
+                <Icon className="h-5 w-5 mb-2" style={{ color }} />
+                <span className="text-[10px] font-mono text-[#8a8f9e]">{label}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Content Column */}
+        {/* Content column */}
         <div className="flex flex-col">
-          <div className="mb-2 inline-flex items-center text-xs font-mono font-bold text-primary/80 tracking-widest uppercase">
+          <div className="mb-2 text-xs font-mono font-bold tracking-widest uppercase" style={{ color: `${NEON_GREEN}cc` }}>
             // {product.category}
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tighter mb-4 leading-tight">
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tighter mb-4 leading-tight text-white">
             {product.name}
           </h1>
 
-          <div className="text-3xl font-mono font-bold text-foreground mb-8 pb-8 border-b border-border/40">
+          <div
+            className="text-3xl font-mono font-bold mb-8 pb-8"
+            style={{ color: NEON_GREEN, borderBottom: "1px solid #1e2330" }}
+          >
             ${product.price.toFixed(2)}
           </div>
 
-          <div className="prose prose-invert prose-p:text-muted-foreground max-w-none mb-10">
-            <p className="text-lg leading-relaxed">{product.description}</p>
+          <div className="mb-10">
+            <p className="text-lg leading-relaxed text-[#b0b5c0]">{product.description}</p>
           </div>
 
           {/* Buy Now Panel */}
-          <div className="mt-auto border border-border/50 bg-card p-6 rounded-xl shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full" />
-
-            <h3 className="font-mono text-sm font-bold text-foreground mb-2">ACQUIRE_THIS_ASSET</h3>
-            <p className="text-xs text-muted-foreground font-mono mb-5">
+          <div
+            className="mt-auto p-6 rounded-xl relative overflow-hidden"
+            style={{ background: "#0d0f14", border: `1px solid ${NEON_GREEN}40` }}
+          >
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: `radial-gradient(ellipse at top right, ${NEON_GREEN}08 0%, transparent 70%)` }}
+            />
+            <h3 className="font-mono text-sm font-bold text-white mb-1">ACQUIRE_THIS_ASSET</h3>
+            <p className="text-xs font-mono mb-5" style={{ color: "#8a8f9e" }}>
               Pay via Cash App or PayPal — files delivered within 24 hrs via email.
             </p>
-
             <button
               onClick={handleBuyNow}
               data-testid="btn-checkout"
-              className="relative z-10 w-full h-14 flex items-center justify-center gap-3 rounded-xl font-mono font-black text-lg tracking-wider transition-all hover:opacity-90 hover:shadow-[0_0_25px_rgba(0,255,136,0.35)]"
-              style={{ background: "#00FF88", color: "#0a0d12" }}
+              className="relative z-10 w-full h-14 flex items-center justify-center gap-3 rounded-xl font-mono font-black text-lg tracking-wider transition-all"
+              style={{
+                background: NEON_GREEN,
+                color: "#0a0d12",
+                boxShadow: `0 0 25px ${NEON_GREEN}40`,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.boxShadow = `0 0 40px ${NEON_GREEN}70`)}
+              onMouseLeave={e => (e.currentTarget.style.boxShadow = `0 0 25px ${NEON_GREEN}40`)}
             >
               <ShoppingBag className="h-5 w-5" />
               BUY NOW — ${product.price.toFixed(2)}
