@@ -81,7 +81,6 @@ export default function OrderLookup() {
                 style={{
                   background: "#0d0f14",
                   border: "1px solid #1e2330",
-                  focusRingColor: "#00FF88",
                 }}
                 onFocus={(e) => (e.currentTarget.style.borderColor = "#00FF88")}
                 onBlur={(e) => (e.currentTarget.style.borderColor = "#1e2330")}

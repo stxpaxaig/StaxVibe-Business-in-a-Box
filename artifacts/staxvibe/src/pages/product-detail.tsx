@@ -1,43 +1,18 @@
 import { useParams } from "wouter";
-import { useGetProduct, useCreateCheckoutSession, getGetProductQueryKey } from "@workspace/api-client-react";
+import { useGetProduct, getGetProductQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Zap, ArrowLeft, Terminal, ShieldCheck, Download as DownloadIcon } from "lucide-react";
+import { Zap, ArrowLeft, Terminal, ShieldCheck, Download as DownloadIcon, ShoppingBag } from "lucide-react";
 import { Link } from "wouter";
-import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { usePayment } from "@/context/PaymentContext";
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
-  const { data: product, isLoading } = useGetProduct(Number(id), { 
-    query: { enabled: !!id, queryKey: getGetProductQueryKey(Number(id)) } 
+  const { data: product, isLoading } = useGetProduct(Number(id), {
+    query: { enabled: !!id, queryKey: getGetProductQueryKey(Number(id)) },
   });
-  
-  const createCheckout = useCreateCheckoutSession();
-  const { toast } = useToast();
-  const [email, setEmail] = useState("");
-
-  const handleCheckout = () => {
-    createCheckout.mutate({
-      data: {
-        productId: Number(id),
-        customerEmail: email || null
-      }
-    }, {
-      onSuccess: (session) => {
-        window.location.href = session.url;
-      },
-      onError: () => {
-        toast({
-          title: "CHECKOUT_ERROR",
-          description: "Failed to initialize secure checkout. Please try again.",
-          variant: "destructive",
-        });
-      }
-    });
-  };
+  const { openModal } = usePayment();
 
   const getCategoryImage = (category: string) => {
     if (category.toLowerCase().includes("notion")) return "/images/notion-dash.png";
@@ -84,6 +59,15 @@ export default function ProductDetail() {
     );
   }
 
+  function handleBuyNow() {
+    openModal({
+      id: product!.id,
+      name: product!.name,
+      price: product!.price,
+      category: product!.category,
+    });
+  }
+
   return (
     <div className="container max-w-screen-xl px-4 py-8 mx-auto">
       <Link href="/products" className="inline-flex items-center text-sm font-mono text-muted-foreground hover:text-primary transition-colors mb-8">
@@ -111,11 +95,11 @@ export default function ProductDetail() {
           <div className="grid grid-cols-3 gap-4">
             <div className="border border-border/50 bg-card/30 rounded-lg p-4 flex flex-col items-center justify-center text-center">
               <ShieldCheck className="h-6 w-6 text-primary mb-2" />
-              <span className="text-[10px] font-mono text-muted-foreground">SECURE_TRANSACTION</span>
+              <span className="text-[10px] font-mono text-muted-foreground">SECURE_PAYMENT</span>
             </div>
             <div className="border border-border/50 bg-card/30 rounded-lg p-4 flex flex-col items-center justify-center text-center">
               <DownloadIcon className="h-6 w-6 text-secondary mb-2" />
-              <span className="text-[10px] font-mono text-muted-foreground">INSTANT_DELIVERY</span>
+              <span className="text-[10px] font-mono text-muted-foreground">FILE_DELIVERY</span>
             </div>
             <div className="border border-border/50 bg-card/30 rounded-lg p-4 flex flex-col items-center justify-center text-center">
               <Terminal className="h-6 w-6 text-accent mb-2" />
@@ -129,11 +113,11 @@ export default function ProductDetail() {
           <div className="mb-2 inline-flex items-center text-xs font-mono font-bold text-primary/80 tracking-widest uppercase">
             // {product.category}
           </div>
-          
+
           <h1 className="text-4xl md:text-5xl font-extrabold tracking-tighter mb-4 leading-tight">
             {product.name}
           </h1>
-          
+
           <div className="text-3xl font-mono font-bold text-foreground mb-8 pb-8 border-b border-border/40">
             ${product.price.toFixed(2)}
           </div>
@@ -142,33 +126,24 @@ export default function ProductDetail() {
             <p className="text-lg leading-relaxed">{product.description}</p>
           </div>
 
+          {/* Buy Now Panel */}
           <div className="mt-auto border border-border/50 bg-card p-6 rounded-xl shadow-lg relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl rounded-full" />
-            
-            <h3 className="font-mono text-sm font-bold text-foreground mb-4">INITIATE_ACQUISITION</h3>
-            
-            <div className="space-y-4 relative z-10">
-              <div>
-                <Input 
-                  type="email" 
-                  placeholder="Enter email for receipt (optional)" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="font-mono bg-background/50 border-border/50 focus-visible:ring-primary/50"
-                  data-testid="input-checkout-email"
-                />
-              </div>
-              
-              <Button 
-                size="lg" 
-                className="w-full h-14 font-mono font-bold text-lg bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-[0_0_20px_rgba(0,255,136,0.3)] transition-all"
-                onClick={handleCheckout}
-                disabled={createCheckout.isPending}
-                data-testid="btn-checkout"
-              >
-                {createCheckout.isPending ? "PROCESSING..." : `SECURE_PAYMENT -> $${product.price.toFixed(2)}`}
-              </Button>
-            </div>
+
+            <h3 className="font-mono text-sm font-bold text-foreground mb-2">ACQUIRE_THIS_ASSET</h3>
+            <p className="text-xs text-muted-foreground font-mono mb-5">
+              Pay via Cash App or PayPal — files delivered within 24 hrs via email.
+            </p>
+
+            <button
+              onClick={handleBuyNow}
+              data-testid="btn-checkout"
+              className="relative z-10 w-full h-14 flex items-center justify-center gap-3 rounded-xl font-mono font-black text-lg tracking-wider transition-all hover:opacity-90 hover:shadow-[0_0_25px_rgba(0,255,136,0.35)]"
+              style={{ background: "#00FF88", color: "#0a0d12" }}
+            >
+              <ShoppingBag className="h-5 w-5" />
+              BUY NOW — ${product.price.toFixed(2)}
+            </button>
           </div>
         </div>
       </div>

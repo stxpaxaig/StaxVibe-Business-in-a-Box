@@ -4,14 +4,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { PaymentProvider } from "@/context/PaymentContext";
+import { PaymentModal } from "@/components/payment/PaymentModal";
 
-// Pages
 import Home from "@/pages/home";
 import Products from "@/pages/products";
 import ProductDetail from "@/pages/product-detail";
-import CheckoutSuccess from "@/pages/checkout-success";
-import CheckoutCancel from "@/pages/checkout-cancel";
-import Download from "@/pages/download";
 import Admin from "@/pages/admin";
 import OrderLookup from "@/pages/order-lookup";
 import Setup from "@/pages/setup";
@@ -29,9 +27,6 @@ function Router() {
           <Route path="/" component={Home} />
           <Route path="/products" component={Products} />
           <Route path="/products/:id" component={ProductDetail} />
-          <Route path="/checkout/success" component={CheckoutSuccess} />
-          <Route path="/checkout/cancel" component={CheckoutCancel} />
-          <Route path="/download/:orderId" component={Download} />
           <Route path="/admin" component={Admin} />
           <Route path="/orders/lookup" component={OrderLookup} />
           <Route path="/setup" component={Setup} />
@@ -39,6 +34,7 @@ function Router() {
         </Switch>
       </main>
       <Footer />
+      <PaymentModal />
     </div>
   );
 }
@@ -51,9 +47,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <PaymentProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+        </PaymentProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

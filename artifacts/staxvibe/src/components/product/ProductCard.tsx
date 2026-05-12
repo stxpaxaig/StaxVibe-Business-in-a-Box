@@ -1,14 +1,17 @@
 import { Link } from "wouter";
-import { Product } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Product } from "@workspace/api-client-react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Zap } from "lucide-react";
+import { Zap, ShoppingBag } from "lucide-react";
+import { usePayment } from "@/context/PaymentContext";
 
 interface ProductCardProps {
   product: Product;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
+  const { openModal } = usePayment();
+
   const getBadgeColor = (badge: string | null) => {
     if (!badge) return "bg-primary";
     const b = badge.toUpperCase();
@@ -24,6 +27,17 @@ export function ProductCard({ product }: ProductCardProps) {
     if (category.toLowerCase().includes("prompt")) return "/images/prompts.png";
     return "/images/infographics.png";
   };
+
+  function handleBuyNow(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    openModal({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      category: product.category,
+    });
+  }
 
   return (
     <Link href={`/products/${product.id}`} className="group block h-full">
@@ -56,6 +70,17 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.description}
           </p>
         </CardContent>
+        <CardFooter className="p-4 pt-0">
+          <button
+            onClick={handleBuyNow}
+            data-testid={`btn-buy-${product.id}`}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-mono font-bold text-sm tracking-wider transition-all hover:opacity-90"
+            style={{ background: "#00FF88", color: "#0a0d12" }}
+          >
+            <ShoppingBag className="h-4 w-4" />
+            BUY NOW
+          </button>
+        </CardFooter>
       </Card>
     </Link>
   );
