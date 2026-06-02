@@ -1,0 +1,147 @@
+{
+  "blueprint": "Lead Capture Automation",
+  "version": "1.0.0",
+  "description": "Automatically captures leads from web forms, enriches contact data, and routes them to your CRM with instant Slack notifications.",
+  "platform": ["n8n", "Make.com"],
+  "trigger": {
+    "type": "webhook",
+    "method": "POST",
+    "url": "{{WEBHOOK_URL}}",
+    "headers": {
+      "Content-Type": "application/json",
+      "X-Webhook-Secret": "{{WEBHOOK_SECRET}}"
+    }
+  },
+  "nodes": [
+    {
+      "id": "node_1",
+      "name": "Webhook Receiver",
+      "type": "webhook",
+      "position": [100, 200],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/lead-capture",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "node_2",
+      "name": "Validate Lead Data",
+      "type": "function",
+      "position": [300, 200],
+      "parameters": {
+        "code": "const { email, firstName, lastName, phone, source } = $input.first().json;\nif (!email || !email.includes('@')) {\n  throw new Error('Invalid email address');\n}\nreturn [{\n  json: {\n    email: email.toLowerCase().trim(),\n    firstName: firstName || '',\n    lastName: lastName || '',\n    phone: phone || '',\n    source: source || 'website',\n    capturedAt: new Date().toISOString()\n  }\n}];"
+      }
+    },
+    {
+      "id": "node_3",
+      "name": "Enrich Contact via Clearbit",
+      "type": "http_request",
+      "position": [500, 200],
+      "parameters": {
+        "method": "GET",
+        "url": "https://person.clearbit.com/v2/combined/find",
+        "queryParameters": {
+          "email": "={{$node['Validate Lead Data'].json.email}}"
+        },
+        "headers": {
+          "Authorization": "Bearer {{CLEARBIT_API_KEY}}"
+        },
+        "options": {
+          "ignoreHttpStatusErrors": true
+        }
+      }
+    },
+    {
+      "id": "node_4",
+      "name": "Create CRM Contact",
+      "type": "http_request",
+      "position": [700, 200],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.hubspot.com/crm/v3/objects/contacts",
+        "headers": {
+          "Authorization": "Bearer {{HUBSPOT_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "properties": {
+            "email": "={{$node['Validate Lead Data'].json.email}}",
+            "firstname": "={{$node['Validate Lead Data'].json.firstName}}",
+            "lastname": "={{$node['Validate Lead Data'].json.lastName}}",
+            "phone": "={{$node['Validate Lead Data'].json.phone}}",
+            "lead_source": "={{$node['Validate Lead Data'].json.source}}"
+          }
+        }
+      }
+    },
+    {
+      "id": "node_5",
+      "name": "Send Slack Notification",
+      "type": "slack",
+      "position": [900, 200],
+      "parameters": {
+        "webhookUrl": "{{SLACK_WEBHOOK_URL}}",
+        "channel": "#new-leads",
+        "text": ":tada: New lead captured!",
+        "attachments": [
+          {
+            "color": "#2563EB",
+            "fields": [
+              { "title": "Email", "value": "={{$node['Validate Lead Data'].json.email}}", "short": true },
+              { "title": "Source", "value": "={{$node['Validate Lead Data'].json.source}}", "short": true },
+              { "title": "Captured At", "value": "={{$node['Validate Lead Data'].json.capturedAt}}", "short": false }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "node_6",
+      "name": "Send Welcome Email",
+      "type": "http_request",
+      "position": [900, 350],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "headers": {
+          "Authorization": "Bearer {{SENDGRID_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "to": [{ "email": "={{$node['Validate Lead Data'].json.email}}" }],
+          "from": { "email": "{{SENDER_EMAIL}}", "name": "{{SENDER_NAME}}" },
+          "subject": "Welcome — Here's What Happens Next",
+          "templateId": "{{SENDGRID_WELCOME_TEMPLATE_ID}}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "node_1": { "main": [["node_2"]] },
+    "node_2": { "main": [["node_3"]] },
+    "node_3": { "main": [["node_4"]] },
+    "node_4": { "main": [["node_5"], ["node_6"]] }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "requiredEnvVars": [
+    "WEBHOOK_URL",
+    "WEBHOOK_SECRET",
+    "CLEARBIT_API_KEY",
+    "HUBSPOT_API_KEY",
+    "SLACK_WEBHOOK_URL",
+    "SENDGRID_API_KEY",
+    "SENDER_EMAIL",
+    "SENDER_NAME",
+    "SENDGRID_WELCOME_TEMPLATE_ID"
+  ],
+  "importInstructions": {
+    "n8n": "Go to Workflows > Import > paste this JSON",
+    "make": "Go to Scenarios > Create new > Import Blueprint > paste this JSON"
+  }
+}

@@ -1,0 +1,325 @@
+{
+  "blueprint": "Email Follow-up Automation Flow",
+  "version": "1.0.0",
+  "description": "A multi-step drip email sequence triggered when a new contact is added to your CRM. Sends timed follow-ups, tracks opens/clicks, and auto-moves contacts between pipeline stages based on engagement.",
+  "platform": ["n8n", "Make.com"],
+  "trigger": {
+    "type": "webhook",
+    "event": "contact.created",
+    "description": "Fires when a new contact is created in HubSpot, Pipedrive, or your CRM via webhook"
+  },
+  "sequence": {
+    "name": "7-Day Follow-up Sequence",
+    "totalEmails": 4,
+    "emails": [
+      {
+        "step": 1,
+        "delayHours": 0,
+        "subject": "Quick note from {{SENDER_NAME}}",
+        "purpose": "Immediate warm welcome + value delivery",
+        "template_id": "{{EMAIL_TEMPLATE_STEP_1}}",
+        "personalisation": ["firstName", "company", "leadSource"]
+      },
+      {
+        "step": 2,
+        "delayHours": 48,
+        "subject": "Did you get a chance to check this out?",
+        "purpose": "Soft follow-up with social proof",
+        "template_id": "{{EMAIL_TEMPLATE_STEP_2}}",
+        "condition": "contact.emailOpenCount == 0",
+        "personalisation": ["firstName"]
+      },
+      {
+        "step": 3,
+        "delayHours": 120,
+        "subject": "One thing that might change your mind",
+        "purpose": "Objection handling + case study",
+        "template_id": "{{EMAIL_TEMPLATE_STEP_3}}",
+        "condition": "contact.emailClickCount == 0",
+        "personalisation": ["firstName", "industry"]
+      },
+      {
+        "step": 4,
+        "delayHours": 168,
+        "subject": "Last message — I'll leave you alone after this",
+        "purpose": "Break-up email with final CTA",
+        "template_id": "{{EMAIL_TEMPLATE_STEP_4}}",
+        "personalisation": ["firstName"]
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "node_1",
+      "name": "CRM Webhook Trigger",
+      "type": "webhook",
+      "position": [100, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/crm-contact-created",
+        "authentication": "headerAuth",
+        "headerName": "X-Webhook-Secret",
+        "headerValue": "{{WEBHOOK_SECRET}}"
+      }
+    },
+    {
+      "id": "node_2",
+      "name": "Extract Contact Data",
+      "type": "function",
+      "position": [300, 300],
+      "parameters": {
+        "code": "const contact = $input.first().json;\nreturn [{\n  json: {\n    contactId: contact.id || contact.vid,\n    email: contact.email || contact.properties?.email?.value,\n    firstName: contact.firstname || contact.properties?.firstname?.value || 'there',\n    lastName: contact.lastname || contact.properties?.lastname?.value || '',\n    company: contact.company || contact.properties?.company?.value || '',\n    leadSource: contact.lead_source || contact.properties?.lead_source?.value || 'website',\n    industry: contact.industry || contact.properties?.industry?.value || '',\n    sequenceStartedAt: new Date().toISOString()\n  }\n}];"
+      }
+    },
+    {
+      "id": "node_3",
+      "name": "Send Email Step 1 (Immediate)",
+      "type": "http_request",
+      "position": [500, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "headers": {
+          "Authorization": "Bearer {{SENDGRID_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "to": [{ "email": "={{$node['Extract Contact Data'].json.email}}", "name": "={{$node['Extract Contact Data'].json.firstName}} ={{$node['Extract Contact Data'].json.lastName}}" }],
+          "from": { "email": "{{SENDER_EMAIL}}", "name": "{{SENDER_NAME}}" },
+          "replyTo": { "email": "{{REPLY_TO_EMAIL}}" },
+          "subject": "Quick note from {{SENDER_NAME}}",
+          "templateId": "={{$env.EMAIL_TEMPLATE_STEP_1}}",
+          "dynamicTemplateData": {
+            "firstName": "={{$node['Extract Contact Data'].json.firstName}}",
+            "company": "={{$node['Extract Contact Data'].json.company}}",
+            "leadSource": "={{$node['Extract Contact Data'].json.leadSource}}"
+          },
+          "trackingSettings": {
+            "clickTracking": { "enable": true },
+            "openTracking": { "enable": true }
+          }
+        }
+      }
+    },
+    {
+      "id": "node_4",
+      "name": "Wait 48 Hours",
+      "type": "wait",
+      "position": [700, 300],
+      "parameters": {
+        "amount": 48,
+        "unit": "hours"
+      }
+    },
+    {
+      "id": "node_5",
+      "name": "Check Email Opened (Step 1)",
+      "type": "http_request",
+      "position": [900, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.hubspot.com/crm/v3/objects/contacts/={{$node['Extract Contact Data'].json.contactId}}?properties=hs_email_open,num_contacted_notes",
+        "headers": {
+          "Authorization": "Bearer {{HUBSPOT_API_KEY}}"
+        }
+      }
+    },
+    {
+      "id": "node_6",
+      "name": "Route: Opened or Not",
+      "type": "switch",
+      "position": [1100, 300],
+      "parameters": {
+        "conditions": [
+          {
+            "condition": "={{$node['Check Email Opened (Step 1)'].json.properties.hs_email_open}} > 0",
+            "output": "engaged"
+          }
+        ],
+        "defaultOutput": "not_opened"
+      }
+    },
+    {
+      "id": "node_7",
+      "name": "Send Email Step 2 (Follow-up)",
+      "type": "http_request",
+      "position": [1300, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "headers": {
+          "Authorization": "Bearer {{SENDGRID_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "to": [{ "email": "={{$node['Extract Contact Data'].json.email}}" }],
+          "from": { "email": "{{SENDER_EMAIL}}", "name": "{{SENDER_NAME}}" },
+          "subject": "Did you get a chance to check this out?",
+          "templateId": "={{$env.EMAIL_TEMPLATE_STEP_2}}",
+          "dynamicTemplateData": {
+            "firstName": "={{$node['Extract Contact Data'].json.firstName}}"
+          },
+          "trackingSettings": {
+            "clickTracking": { "enable": true },
+            "openTracking": { "enable": true }
+          }
+        }
+      }
+    },
+    {
+      "id": "node_8",
+      "name": "Move to Engaged Stage (CRM)",
+      "type": "http_request",
+      "position": [1300, 200],
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://api.hubspot.com/crm/v3/objects/contacts/={{$node['Extract Contact Data'].json.contactId}}",
+        "headers": {
+          "Authorization": "Bearer {{HUBSPOT_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "properties": {
+            "lifecyclestage": "lead",
+            "hs_lead_status": "IN_PROGRESS",
+            "automation_sequence_status": "engaged"
+          }
+        }
+      }
+    },
+    {
+      "id": "node_9",
+      "name": "Wait 72 More Hours",
+      "type": "wait",
+      "position": [1500, 350],
+      "parameters": {
+        "amount": 72,
+        "unit": "hours"
+      }
+    },
+    {
+      "id": "node_10",
+      "name": "Send Email Step 3 (Case Study)",
+      "type": "http_request",
+      "position": [1700, 350],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "headers": {
+          "Authorization": "Bearer {{SENDGRID_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "to": [{ "email": "={{$node['Extract Contact Data'].json.email}}" }],
+          "from": { "email": "{{SENDER_EMAIL}}", "name": "{{SENDER_NAME}}" },
+          "subject": "One thing that might change your mind",
+          "templateId": "={{$env.EMAIL_TEMPLATE_STEP_3}}",
+          "dynamicTemplateData": {
+            "firstName": "={{$node['Extract Contact Data'].json.firstName}}",
+            "industry": "={{$node['Extract Contact Data'].json.industry}}"
+          },
+          "trackingSettings": {
+            "clickTracking": { "enable": true },
+            "openTracking": { "enable": true }
+          }
+        }
+      }
+    },
+    {
+      "id": "node_11",
+      "name": "Wait 48 More Hours",
+      "type": "wait",
+      "position": [1900, 350],
+      "parameters": {
+        "amount": 48,
+        "unit": "hours"
+      }
+    },
+    {
+      "id": "node_12",
+      "name": "Send Email Step 4 (Break-up)",
+      "type": "http_request",
+      "position": [2100, 350],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "headers": {
+          "Authorization": "Bearer {{SENDGRID_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "to": [{ "email": "={{$node['Extract Contact Data'].json.email}}" }],
+          "from": { "email": "{{SENDER_EMAIL}}", "name": "{{SENDER_NAME}}" },
+          "subject": "Last message — I'll leave you alone after this",
+          "templateId": "={{$env.EMAIL_TEMPLATE_STEP_4}}",
+          "dynamicTemplateData": {
+            "firstName": "={{$node['Extract Contact Data'].json.firstName}}"
+          },
+          "trackingSettings": {
+            "clickTracking": { "enable": true },
+            "openTracking": { "enable": true }
+          }
+        }
+      }
+    },
+    {
+      "id": "node_13",
+      "name": "Mark Sequence Complete",
+      "type": "http_request",
+      "position": [2300, 350],
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://api.hubspot.com/crm/v3/objects/contacts/={{$node['Extract Contact Data'].json.contactId}}",
+        "headers": {
+          "Authorization": "Bearer {{HUBSPOT_API_KEY}}",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "properties": {
+            "automation_sequence_status": "completed",
+            "automation_sequence_completed_at": "={{new Date().toISOString()}}"
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "node_1": { "main": [["node_2"]] },
+    "node_2": { "main": [["node_3"]] },
+    "node_3": { "main": [["node_4"]] },
+    "node_4": { "main": [["node_5"]] },
+    "node_5": { "main": [["node_6"]] },
+    "node_6": {
+      "engaged": [["node_8"]],
+      "not_opened": [["node_7"]]
+    },
+    "node_7": { "main": [["node_9"]] },
+    "node_8": { "main": [["node_9"]] },
+    "node_9": { "main": [["node_10"]] },
+    "node_10": { "main": [["node_11"]] },
+    "node_11": { "main": [["node_12"]] },
+    "node_12": { "main": [["node_13"]] }
+  },
+  "errorHandling": {
+    "strategy": "continueOnFail",
+    "alertChannel": "{{SLACK_WEBHOOK_URL}}",
+    "alertMessage": ":x: Email follow-up flow failed for contact {{contactId}}: {{error.message}}"
+  },
+  "requiredEnvVars": [
+    "WEBHOOK_SECRET",
+    "SENDGRID_API_KEY",
+    "SENDER_EMAIL",
+    "SENDER_NAME",
+    "REPLY_TO_EMAIL",
+    "HUBSPOT_API_KEY",
+    "SLACK_WEBHOOK_URL",
+    "EMAIL_TEMPLATE_STEP_1",
+    "EMAIL_TEMPLATE_STEP_2",
+    "EMAIL_TEMPLATE_STEP_3",
+    "EMAIL_TEMPLATE_STEP_4"
+  ],
+  "importInstructions": {
+    "n8n": "Workflows → Import from File → select email_followup_flow.json → Set credentials → Activate",
+    "make": "Scenarios → Create new → Import Blueprint → Paste JSON → Connect modules → Turn ON"
+  }
+}

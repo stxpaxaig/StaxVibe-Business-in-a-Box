@@ -1,0 +1,195 @@
+================================================================
+SOCIAL MEDIA SCHEDULER AUTOMATION BLUEPRINT
+AI Automation Blueprint Vault — v1.0.0
+================================================================
+
+OVERVIEW
+--------
+This blueprint automates scheduling and publishing social media
+posts across Twitter/X, LinkedIn, and Instagram. Posts are
+drafted in a Google Sheet or Notion database, approved with a
+status field, and published at the scheduled time.
+
+PLATFORMS SUPPORTED
+--------------------
+- n8n (recommended)
+- Make.com (formerly Integromat)
+
+================================================================
+TRIGGER CONFIGURATION
+================================================================
+
+Type:          Schedule / Cron
+Frequency:     Every 15 minutes
+Cron Pattern:  */15 * * * *
+
+This trigger polls your content database for posts that are:
+  - Status = "Approved"
+  - Scheduled Time <= NOW()
+  - Published = false
+
+================================================================
+STEP 1 — FETCH APPROVED POSTS FROM GOOGLE SHEETS
+================================================================
+
+Node Type:     Google Sheets (Read Rows)
+Sheet ID:      {{GOOGLE_SHEET_ID}}
+Tab Name:      Content Calendar
+Filter:        Status = "Approved" AND Published = FALSE
+               AND ScheduledAt <= {{CURRENT_TIMESTAMP}}
+
+Expected Columns:
+  A: PostID        (unique ID, auto-generated)
+  B: Platform      (twitter | linkedin | instagram)
+  C: Caption       (the post text, max 280 chars for Twitter)
+  D: ImageURL      (public URL of attached media, optional)
+  E: ScheduledAt   (ISO 8601 datetime: 2025-06-01T14:00:00Z)
+  F: Status        (Draft | Approved | Published | Failed)
+  G: Published     (FALSE until sent, then TRUE)
+  H: PublishedAt   (timestamp filled after publishing)
+  I: ErrorMessage  (filled if Step fails)
+
+================================================================
+STEP 2 — ROUTE BY PLATFORM
+================================================================
+
+Node Type:     Switch / Router
+Condition:     Match on {{Platform}} field
+
+Route A → "twitter"
+Route B → "linkedin"
+Route C → "instagram"
+Default → Log unknown platform error
+
+================================================================
+STEP 3A — PUBLISH TO TWITTER/X
+================================================================
+
+Node Type:     HTTP Request (or Twitter node)
+Method:        POST
+URL:           https://api.twitter.com/2/tweets
+Auth:          OAuth 2.0 Bearer Token
+Headers:
+  Authorization: Bearer {{TWITTER_BEARER_TOKEN}}
+  Content-Type:  application/json
+
+Body (JSON):
+{
+  "text": "{{Caption}}",
+  "media": {
+    "media_ids": ["{{TWITTER_MEDIA_ID}}"]   ← only if ImageURL present
+  }
+}
+
+Note: If ImageURL is provided, first upload media via:
+  POST https://upload.twitter.com/1.1/media/upload.json
+  then attach the returned media_id to the tweet body.
+
+================================================================
+STEP 3B — PUBLISH TO LINKEDIN
+================================================================
+
+Node Type:     HTTP Request
+Method:        POST
+URL:           https://api.linkedin.com/v2/ugcPosts
+Auth:          OAuth 2.0
+Headers:
+  Authorization: Bearer {{LINKEDIN_ACCESS_TOKEN}}
+  Content-Type:  application/json
+  X-Restli-Protocol-Version: 2.0.0
+
+Body (JSON):
+{
+  "author": "urn:li:person:{{LINKEDIN_PERSON_ID}}",
+  "lifecycleState": "PUBLISHED",
+  "specificContent": {
+    "com.linkedin.ugc.ShareContent": {
+      "shareCommentary": { "text": "{{Caption}}" },
+      "shareMediaCategory": "NONE"
+    }
+  },
+  "visibility": {
+    "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
+  }
+}
+
+================================================================
+STEP 3C — PUBLISH TO INSTAGRAM (via Meta Graph API)
+================================================================
+
+Node Type:     HTTP Request (two-step: create container → publish)
+
+Step 3C-1: Create Media Container
+  Method: POST
+  URL:    https://graph.facebook.com/v19.0/{{INSTAGRAM_ACCOUNT_ID}}/media
+  Params:
+    image_url:    {{ImageURL}}
+    caption:      {{Caption}}
+    access_token: {{META_ACCESS_TOKEN}}
+
+Step 3C-2: Publish Container
+  Method: POST
+  URL:    https://graph.facebook.com/v19.0/{{INSTAGRAM_ACCOUNT_ID}}/media_publish
+  Params:
+    creation_id:  {{container_id from Step 3C-1}}
+    access_token: {{META_ACCESS_TOKEN}}
+
+Note: Instagram requires an image for every post. If no ImageURL
+is provided, skip this platform and log a warning.
+
+================================================================
+STEP 4 — MARK AS PUBLISHED IN GOOGLE SHEETS
+================================================================
+
+Node Type:     Google Sheets (Update Row)
+Sheet ID:      {{GOOGLE_SHEET_ID}}
+Row ID:        {{PostID}} (match by column A)
+Updates:
+  F (Status):      "Published"
+  G (Published):   TRUE
+  H (PublishedAt): {{CURRENT_TIMESTAMP}}
+
+================================================================
+STEP 5 — ERROR HANDLING
+================================================================
+
+On any failure in Steps 3A / 3B / 3C:
+  → Update Google Sheet:
+      F (Status):       "Failed"
+      I (ErrorMessage): {{error.message}}
+  → Send alert to Slack #automation-errors channel:
+      Webhook: {{SLACK_WEBHOOK_URL}}
+      Message: ":x: Post {{PostID}} failed on {{Platform}}: {{error.message}}"
+
+================================================================
+REQUIRED ENVIRONMENT VARIABLES
+================================================================
+
+GOOGLE_SHEET_ID           Your Google Sheets document ID
+TWITTER_BEARER_TOKEN      Twitter API v2 Bearer Token
+LINKEDIN_ACCESS_TOKEN     LinkedIn OAuth 2.0 access token
+LINKEDIN_PERSON_ID        Your LinkedIn Member URN ID
+INSTAGRAM_ACCOUNT_ID      Instagram Business Account ID
+META_ACCESS_TOKEN         Meta Graph API access token
+SLACK_WEBHOOK_URL         Slack Incoming Webhook URL
+
+================================================================
+IMPORT INSTRUCTIONS
+================================================================
+
+n8n:
+  1. Open n8n → Workflows → Import from File
+  2. Select this file (or copy-paste the JSON version)
+  3. Set all credentials in Settings → Credentials
+  4. Activate the workflow
+
+Make.com:
+  1. Open Make → Scenarios → Create a new scenario
+  2. Click the 3-dot menu → Import Blueprint
+  3. Paste the JSON version of this blueprint
+  4. Connect your accounts in each module's settings
+  5. Turn the scenario ON
+
+================================================================
+END OF BLUEPRINT
+================================================================
