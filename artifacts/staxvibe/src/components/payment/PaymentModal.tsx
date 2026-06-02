@@ -2,9 +2,9 @@ import { usePayment } from "@/context/PaymentContext";
 import { X, Send, Package } from "lucide-react";
 import { useEffect } from "react";
 
-const CASHAPP_URL = "https://cash.app/$JayKS5991";
-const PAYPAL_URL  = "https://paypal.me/justinstanhope";
-const RECEIPT_EMAIL = "stxpax.aig@gmail.com";
+const CASHAPP_URL = "https://cash.app/YOUR_CASHAPP_HANDLE";
+const PAYPAL_URL  = "https://paypal.me/YOUR_PAYPAL_HANDLE";
+const RECEIPT_EMAIL = "YOUR_EMAIL_FOR_RECEIPTS";
 
 const NEON_GREEN = "#00FF00";
 const NEON_RED   = "#FF0000";
@@ -118,7 +118,7 @@ export function PaymentModal() {
                 <text x="50%" y="56%" dominantBaseline="middle" textAnchor="middle" fontSize="22" fontWeight="900" fill="#fff">$</text>
               </svg>
               <span className="font-black tracking-wide">Cash App</span>
-              <span className="text-[10px] font-mono opacity-90">$JayKS5991</span>
+              <span className="text-[10px] font-mono opacity-90">$J</span>
             </a>
 
             <a
@@ -130,10 +130,10 @@ export function PaymentModal() {
             >
               <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
                 <rect width="40" height="40" rx="8" fill="#003087"/>
-                <text x="50%" y="56%" dominantBaseline="middle" textAnchor="middle" fontSize="13" fontWeight="900" fill="#009CDE">Pay</text>
+                <text x="50%" y="56%" dominantBaseline="middle" textAnchor="middle" fontSize="13" fontWeight="900" fill="#009CDE"></text>
               </svg>
               <span className="font-black tracking-wide">PayPal</span>
-              <span className="text-[10px] font-mono opacity-80">@justinstanhope</span>
+              <span className="text-[10px] font-mono opacity-80"></span>
             </a>
           </div>
 
@@ -157,7 +157,7 @@ export function PaymentModal() {
             style={{ background: `${NEON_GREEN}0a`, border: `1px solid ${NEON_GREEN}25` }}
           >
             Opens your email app pre-filled for{" "}
-            <span style={{ color: NEON_GREEN }}>stxpax.aig@gmail.com</span>. Attach your payment screenshot — files delivered within 24 hrs.
+            <span style={{ color: NEON_GREEN }}>@YOUR_EMAIL</span>. Attach your payment screenshot — files delivered within 24 hrs.
           </div>
         </div>
       </div>

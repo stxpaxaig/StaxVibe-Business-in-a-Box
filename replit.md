@@ -13,7 +13,7 @@ A premium dark-mode digital marketplace for selling high-end financial infograph
 - **Categories**: Financial Infographic Packs, AI Prompt Libraries, Faceless Video Assets, Notion Trading Dashboards
 - **Stripe Checkout**: Creates Stripe checkout sessions (demo mode without STRIPE_SECRET_KEY)
 - **Instant Download**: After purchase, users get a temporary secure download link
-- **Admin Dashboard**: Password-protected (`staxadmin2026`) with revenue chart (Recharts), stats, order ledger, product CRUD
+- **Admin Dashboard**: Password-protected (`YOUR_ADMIN_PASSWORD`) with revenue chart (Recharts), stats, order ledger, product CRUD
 
 ### Artifacts
 - `artifacts/staxvibe` — React + Vite frontend, served at `/`
@@ -21,7 +21,7 @@ A premium dark-mode digital marketplace for selling high-end financial infograph
 
 ### Admin Access
 - URL: `/admin`
-- Password: `staxadmin2026`
+- Password: `YOUR_ADMIN_PASSWORD`
 
 ### Stripe Integration
 Set `STRIPE_SECRET_KEY` environment variable to enable real Stripe checkout.
